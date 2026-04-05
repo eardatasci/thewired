@@ -190,6 +190,7 @@ export default function AsciiSwarm() {
   const smileRef = useRef(0);
   const frownRef = useRef(0);
   const migrateRef = useRef({ progress: 1, startTime: 0, prevOffset: [0, 0, 0] as number[], targetOffset: [0, 0, 0] as number[] });
+  const firstFrameTime = useRef(-1);
   const currentOffset = useRef([0, 0, 0]);
   const { camera } = useThree();
 
@@ -517,7 +518,8 @@ export default function AsciiSwarm() {
       m.smoothY += (m.y - m.smoothY) * 0.04;
     }
 
-    const elapsed = clock.elapsedTime;
+    if (firstFrameTime.current < 0) firstFrameTime.current = clock.elapsedTime;
+    const elapsed = clock.elapsedTime - firstFrameTime.current;
     const intro = Math.min(elapsed / (INTRO_DURATION + STAGGER), 1.0);
 
     // --- Blink logic ---
