@@ -7,10 +7,11 @@ export default function WiredChat() {
   const containerRef = useRef<HTMLDivElement>(null);
   const rafRef = useRef<number>(0);
   const [visible, setVisible] = useState(false);
-  const [messages, setMessages] = useState<{ text: string; from: "user" | "wired"; playing?: boolean }[]>([]);
+  const [messages, setMessages] = useState<{ text: string; from: "user" | "wired"; playing?: boolean; link?: string }[]>([]);
   const [input, setInput] = useState("");
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const greetedRef = useRef(false);
 
   // Poll for wiredDone
   useEffect(() => {
@@ -22,6 +23,32 @@ export default function WiredChat() {
     }
     rafRef.current = requestAnimationFrame(check);
     return () => cancelAnimationFrame(rafRef.current);
+  }, [visible]);
+
+  // Auto-greet on first appearance
+  useEffect(() => {
+    if (!visible || greetedRef.current) return;
+    greetedRef.current = true;
+
+    setTimeout(() => {
+      setMessages([{
+        text: "We're still building but you can find installation instructions at our Github.",
+        from: "wired",
+        playing: true,
+        link: "https://github.com/eardatasci/thewired",
+      }]);
+
+      const audio = new Audio("/wired-greeting.mp3");
+      audioRef.current = audio;
+      moveState.speaking = true;
+      audio.play().catch(() => {});
+      audio.onended = () => {
+        moveState.speaking = false;
+        setMessages((prev) =>
+          prev.map((m, i) => (i === 0 ? { ...m, playing: false } : m))
+        );
+      };
+    }, 600);
   }, [visible]);
 
   // Auto-scroll to bottom on new messages
@@ -47,8 +74,10 @@ export default function WiredChat() {
 
       const audio = new Audio("/offline-message.mp3");
       audioRef.current = audio;
+      moveState.speaking = true;
       audio.play().catch(() => {});
       audio.onended = () => {
+        moveState.speaking = false;
         setMessages((prev) =>
           prev.map((m, i) => (i === replyIndex ? { ...m, playing: false } : m))
         );
@@ -76,7 +105,7 @@ export default function WiredChat() {
                 className={`flex ${msg.from === "user" ? "justify-end" : "justify-start"}`}
               >
                 <div
-                  className={`px-4 py-2 rounded-lg text-[14px] max-w-[80%] flex items-center gap-2 ${
+                  className={`px-4 py-2 rounded-lg text-[14px] max-w-full flex items-center gap-2 ${
                     msg.from === "user"
                       ? "bg-cream/10 text-cream/80"
                       : "bg-cream/[0.06] text-cream/70 border border-cream/10"
@@ -91,6 +120,16 @@ export default function WiredChat() {
                     </span>
                   )}
                   {msg.text}
+                  {msg.link && (
+                    <a
+                      href={msg.link}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="block mt-1.5 text-[13px] text-cream/40 hover:text-cream/70 underline underline-offset-2 transition-colors"
+                    >
+                      {msg.link}
+                    </a>
+                  )}
                 </div>
               </div>
             ))}

@@ -189,7 +189,7 @@ export default function AsciiSwarm() {
   const blinkState = useRef({ nextBlink: 4, isDouble: false });
   const smileRef = useRef(0);
   const frownRef = useRef(0);
-  const migrateRef = useRef({ progress: 1, startTime: 0, prevOffset: [0, 0, 0] as number[], targetOffset: [0, 0, 0] as number[] });
+  const migrateRef = useRef({ progress: 1, startTime: 0, prevOffset: [0, 0, 0] as number[], targetOffset: [0, 0, 0] as number[], type: "demo" as "demo" | "wired", camStartX: 0, camStartY: 0 });
   const firstFrameTime = useRef(-1);
   const currentOffset = useRef([0, 0, 0]);
   const { camera } = useThree();
@@ -572,6 +572,9 @@ export default function AsciiSwarm() {
       mig.targetOffset = [tx, ty, 0];
       mig.progress = 0;
       mig.startTime = elapsed;
+      mig.type = "demo";
+      mig.camStartX = cam.position.x;
+      mig.camStartY = cam.position.y;
     }
 
     if (moveState.wiredTriggered && intro >= 1) {
@@ -587,6 +590,9 @@ export default function AsciiSwarm() {
       mig.targetOffset = [tx, ty, 0];
       mig.progress = 0;
       mig.startTime = elapsed;
+      mig.type = "wired";
+      mig.camStartX = cam.position.x;
+      mig.camStartY = cam.position.y;
     }
 
     if (mig.progress < 1) {
@@ -594,8 +600,8 @@ export default function AsciiSwarm() {
       mig.progress = Math.min((elapsed - mig.startTime) / totalDur, 1);
       if (mig.progress >= 1) {
         currentOffset.current = [...mig.targetOffset];
-        moveState.migrationDone = true;
-        moveState.wiredDone = true;
+        if (mig.type === "demo") moveState.migrationDone = true;
+        if (mig.type === "wired") moveState.wiredDone = true;
       }
     }
 
@@ -609,21 +615,25 @@ export default function AsciiSwarm() {
       const camDelay = MIGRATE_STAGGER * 0.4;
       const camRaw = Math.max((mig.progress * totalDur - camDelay) / (totalDur - camDelay), 0);
       const camEase = 1 - Math.pow(1 - Math.min(camRaw, 1), 5);
-      const targetCamY = mig.prevOffset[1] + (mig.targetOffset[1] - mig.prevOffset[1]) * camEase;
-      const targetCamX = mig.prevOffset[0] + (mig.targetOffset[0] - mig.prevOffset[0]) * camEase;
+      const targetCamY = mig.camStartY + (mig.targetOffset[1] - mig.camStartY) * camEase;
       cam.position.y = targetCamY;
-      cam.position.x = targetCamX;
+      if (mig.type === "wired") {
+        const targetCamX = mig.camStartX + (mig.targetOffset[0] - mig.camStartX) * camEase;
+        cam.position.x = targetCamX;
+      }
     } else if (mig.progress >= 1) {
       // Snap-settle camera on the target
       const targetCamY = currentOffset.current[1];
-      const targetCamX = currentOffset.current[0];
       const diffY = targetCamY - cam.position.y;
-      const diffX = targetCamX - cam.position.x;
       if (Math.abs(diffY) > 0.01) {
         cam.position.y += diffY * 0.15;
       }
-      if (Math.abs(diffX) > 0.01) {
-        cam.position.x += diffX * 0.15;
+      if (mig.type === "wired") {
+        const targetCamX = currentOffset.current[0];
+        const diffX = targetCamX - cam.position.x;
+        if (Math.abs(diffX) > 0.01) {
+          cam.position.x += diffX * 0.15;
+        }
       }
     }
 
@@ -636,8 +646,17 @@ export default function AsciiSwarm() {
 
     materialRef.current.uniforms.uTime.value = elapsed;
     materialRef.current.uniforms.uIntro.value = intro;
-    // --- Frown logic ---
-    frownRef.current += (moveState.frown - frownRef.current) * 0.06;
+    // --- Speaking mouth movement ---
+    if (moveState.speaking) {
+      // Cycle smile/frown at varying speeds to mimic mouth movement
+      const mouthA = Math.sin(elapsed * 8.0) * 0.5 + 0.5;   // 0–1 fast
+      const mouthB = Math.sin(elapsed * 5.3) * 0.3 + 0.3;   // 0–0.6 slower
+      smileRef.current += (mouthA - smileRef.current) * 0.25;
+      frownRef.current += (mouthB - frownRef.current) * 0.25;
+    } else {
+      // --- Frown logic ---
+      frownRef.current += (moveState.frown - frownRef.current) * 0.06;
+    }
 
     materialRef.current.uniforms.uBlink.value = blink;
     materialRef.current.uniforms.uSmile.value = smileRef.current;

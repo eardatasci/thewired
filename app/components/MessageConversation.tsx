@@ -18,7 +18,7 @@ const PATHS = {
       { text: "i'll never forget the daytrip we took to Antioch", variant: "sent" as const, grouped: "last" as const },
     ] as Msg[],
     response: [
-      { text: "Wow you sound so genuine and passionate", variant: "received" as const, gap: true },
+      { text: "Wow you sound so GENUINE and HUMAN and REAL", variant: "received" as const, gap: true },
       { text: "I changed my mind wanna get dinner tn?", variant: "received" as const },
     ] as Msg[],
   },
@@ -147,7 +147,11 @@ export default function MessageConversation() {
       }
 
       const visible = Math.abs(moveState.cameraY) > 2;
+      const xDrift = Math.abs(moveState.cameraX);
+      const xFade = Math.max(1 - xDrift * 0.3, 0);
       containerRef.current.style.display = visible ? "" : "none";
+      containerRef.current.style.opacity = `${xFade}`;
+      containerRef.current.style.transform = `translateX(${-xDrift * 30}px)`;
 
       if (!visible) {
         startTimeRef.current = null;
@@ -241,9 +245,8 @@ export default function MessageConversation() {
             el.style.opacity = `${e}`;
             el.style.transform = `translateY(${(1 - e) * 12}px)`;
 
-            // Mark conversation done after last response fully visible
             if (i === responseRefs.current.length - 1 && e >= 1) {
-              moveState.conversationDone = true;
+              moveState.demoDone = true;
             }
           }
         }

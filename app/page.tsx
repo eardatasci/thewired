@@ -4,8 +4,8 @@ import dynamic from "next/dynamic";
 import { useRef, useEffect } from "react";
 import { moveState } from "./components/moveState";
 import MessageConversation from "./components/MessageConversation";
-import DialogueBox from "./components/DialogueBox";
 import WiredChat from "./components/WiredChat";
+import InstallButton from "./components/InstallButton";
 
 const Scene = dynamic(() => import("./components/Scene"), { ssr: false });
 
@@ -40,11 +40,11 @@ export default function Home() {
       {/* Message conversation — appears on screen 2 after face settles */}
       <MessageConversation />
 
-      {/* Pokémon-style dialogue box */}
-      <DialogueBox />
-
       {/* Wired chat — appears after sideways migration */}
       <WiredChat />
+
+      {/* Install button — appears after demo completes */}
+      <InstallButton />
 
       {/* Hero text — fades as camera moves */}
       <div
@@ -65,7 +65,7 @@ export default function Home() {
           >
             <span className="text-[13px] text-cream/40">quick demo</span>
             <svg
-              className="animate-boop"
+              className=""
               width="12"
               height="8"
               viewBox="0 0 20 12"

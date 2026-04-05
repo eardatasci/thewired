@@ -7,15 +7,23 @@ export default function Navbar() {
     <nav className="fixed top-6 left-1/2 -translate-x-1/2 z-50 animate-fade-up" style={{ animationDelay: "4.5s" }}>
       <div className="flex items-center gap-0.5 px-1.5 py-1 rounded-lg border border-cream/[0.08] bg-cream/[0.04] backdrop-blur-xl shadow-[0_0_40px_rgba(0,0,0,0.3)]">
         <button
-          onClick={() => { moveState.contactPressed = true; }}
+          onClick={() => { moveState.wiredTriggered = true; }}
           className="px-4 py-1 rounded-md text-[13px] text-cream/60 hover:text-cream hover:bg-cream/[0.08] transition-all duration-200 cursor-pointer"
           style={{ fontFamily: "var(--font-inter)" }}
         >
-          Contact
+          Install
         </button>
         <div className="w-px h-3.5 bg-cream/10" />
         <a
-          href="https://github.com"
+          href="mailto:arda@nofi.nyc"
+          className="px-4 py-1 rounded-md text-[13px] text-cream/60 hover:text-cream hover:bg-cream/[0.08] transition-all duration-200"
+          style={{ fontFamily: "var(--font-inter)" }}
+        >
+          Contact
+        </a>
+        <div className="w-px h-3.5 bg-cream/10" />
+        <a
+          href="https://github.com/eardatasci/thewired"
           target="_blank"
           rel="noopener noreferrer"
           className="px-4 py-1 rounded-md text-[13px] text-cream/60 hover:text-cream hover:bg-cream/[0.08] transition-all duration-200 flex items-center gap-1.5"
