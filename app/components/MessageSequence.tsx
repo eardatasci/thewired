@@ -2,6 +2,7 @@
 
 import { useRef, useEffect } from "react";
 import { scrollState } from "./scrollState";
+import { MessageBubble } from "@/components/ui/message-bubble";
 
 function clamp(v: number, min: number, max: number) {
   return Math.max(min, Math.min(max, v));
@@ -24,7 +25,6 @@ export default function MessageSequence() {
   const incomingRef = useRef<HTMLDivElement>(null);
   const captionRef = useRef<HTMLDivElement>(null);
   const outgoingRef = useRef<HTMLDivElement>(null);
-  const inputBarRef = useRef<HTMLDivElement>(null);
   const rafRef = useRef<number>(0);
 
   useEffect(() => {
@@ -42,17 +42,10 @@ export default function MessageSequence() {
         chevronRef.current.style.opacity = `${chevronFade}`;
       }
 
-      // Header + input bar fade in just before the first message
       if (headerRef.current) {
         const t = range(offset, 0.45, 0.06);
         headerRef.current.style.opacity = `${clamp(t, 0, 1)}`;
         headerRef.current.style.transform = `translateY(${(1 - t) * 8}px)`;
-      }
-
-      if (inputBarRef.current) {
-        const t = range(offset, 0.47, 0.06);
-        inputBarRef.current.style.opacity = `${clamp(t, 0, 1)}`;
-        inputBarRef.current.style.transform = `translateY(${(1 - t) * 8}px)`;
       }
 
       if (incomingRef.current) {
@@ -126,72 +119,52 @@ export default function MessageSequence() {
       </div>
 
       {/* Screen 2: iMessage conversation */}
-      <div className="absolute inset-0 flex items-center justify-start pl-[12vw]">
-        <div
-          className="flex flex-col"
-          style={{ width: "40vw", maxWidth: "500px" }}
-        >
+      <div className="absolute inset-0 flex items-center justify-start pl-[10vw]">
+        <div className="flex flex-col" style={{ width: "42vw", maxWidth: "520px" }}>
           {/* Chat header */}
           <div
             ref={headerRef}
-            className="flex items-center gap-3 mb-6 pb-4"
+            className="flex items-center gap-3 mb-5 pb-4"
             style={{ opacity: 0, borderBottom: "1px solid rgba(212, 203, 191, 0.08)" }}
           >
             <div className="avatar">J</div>
             <div>
-              <div className="font-mono text-[13px] text-cream/70 tracking-wide">Jennie</div>
-              <div className="font-mono text-[10px] text-cream/30 tracking-wider">iMessage</div>
+              <div className="text-sm text-cream/70" style={{ fontFamily: "-apple-system, BlinkMacSystemFont, 'SF Pro Text', system-ui, sans-serif", fontWeight: 500 }}>Jennie</div>
+              <div className="text-[11px] text-cream/30" style={{ fontFamily: "-apple-system, BlinkMacSystemFont, 'SF Pro Text', system-ui, sans-serif" }}>iMessage</div>
             </div>
           </div>
 
           {/* Messages */}
-          <div className="flex flex-col gap-4">
-            {/* Incoming message row */}
+          <div className="flex flex-col gap-3" style={{ paddingLeft: "36px", paddingRight: "36px" }}>
+            {/* Incoming message */}
             <div
               ref={incomingRef}
-              className="flex items-end gap-2"
-              style={{ opacity: 0, transform: "scale(0)", transformOrigin: "left bottom" }}
+              className="flex items-end"
+              style={{ opacity: 0, transform: "scale(0)", transformOrigin: "left bottom", marginLeft: "-36px", gap: "6px" }}
             >
-              <div className="avatar avatar-sm">J</div>
-              <div className="bubble bubble-incoming">
-                This isn&apos;t working out...
-                <br />
-                I think we should break up.
-              </div>
+              <div className="avatar avatar-sm flex-shrink-0" style={{ marginBottom: "1px" }}>J</div>
+              <MessageBubble
+                message={"This isn't working out...\nI think we should break up."}
+                variant="received"
+              />
             </div>
 
-            {/* Outgoing message row */}
+            {/* Outgoing reply */}
             <div
               ref={outgoingRef}
-              className="flex items-end gap-2 self-end"
-              style={{ opacity: 0, transform: "scale(0)", transformOrigin: "right bottom" }}
+              className="flex items-end self-end"
+              style={{ opacity: 0, transform: "scale(0)", transformOrigin: "right bottom", marginRight: "-36px", gap: "6px" }}
             >
-              <div className="bubble bubble-outgoing">
-                nice knowing ya
-              </div>
-              <div className="avatar avatar-sm avatar-you">Y</div>
+              <MessageBubble
+                message="nice knowing ya"
+                variant="sent"
+              />
+              <div className="avatar avatar-sm avatar-you flex-shrink-0" style={{ marginBottom: "1px" }}>Y</div>
             </div>
-          </div>
-
-          {/* iMessage input bar */}
-          <div
-            ref={inputBarRef}
-            className="mt-6 flex items-center gap-2 rounded-full px-4 py-2"
-            style={{
-              opacity: 0,
-              background: "rgba(255, 255, 255, 0.04)",
-              border: "1px solid rgba(212, 203, 191, 0.08)",
-            }}
-          >
-            <div className="font-mono text-[13px] text-cream/20 flex-1">iMessage</div>
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
-              <path d="M22 2L11 13" stroke="rgba(212,203,191,0.2)" strokeWidth="1.5" strokeLinecap="round"/>
-              <path d="M22 2L15 22L11 13L2 9L22 2Z" stroke="rgba(212,203,191,0.2)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-            </svg>
           </div>
         </div>
 
-        {/* 4th wall caption — below the face on the right */}
+        {/* 4th wall caption — near the face */}
         <div
           ref={captionRef}
           className="bubble-caption absolute"

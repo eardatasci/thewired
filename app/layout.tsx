@@ -1,9 +1,15 @@
 import type { Metadata } from "next";
-import { Instrument_Serif, IBM_Plex_Mono, Geist } from "next/font/google";
+import { Instrument_Serif, IBM_Plex_Mono, Geist, Inter } from "next/font/google";
 import "./globals.css";
 import { cn } from "@/lib/utils";
+import Navbar from "./components/Navbar";
 
 const geist = Geist({subsets:['latin'],variable:'--font-sans'});
+
+const inter = Inter({
+  subsets: ["latin"],
+  variable: "--font-inter",
+});
 
 const serif = Instrument_Serif({
   variable: "--font-instrument-serif",
@@ -29,8 +35,11 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={cn(serif.variable, mono.variable, "font-sans", geist.variable)}>
-      <body>{children}</body>
+    <html lang="en" className={cn(serif.variable, mono.variable, inter.variable, "font-sans", geist.variable, "dark")}>
+      <body>
+        <Navbar />
+        {children}
+      </body>
     </html>
   );
 }

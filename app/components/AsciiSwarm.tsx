@@ -3,8 +3,8 @@
 import { useRef, useMemo, useEffect, useState } from "react";
 import { useFrame, useThree } from "@react-three/fiber";
 import { useGLTF } from "@react-three/drei";
-import { scrollState } from "./scrollState";
 import * as THREE from "three";
+import { moveState } from "./moveState";
 
 const ASCII_CHARS = "@#&*+=-~:;.%$?!^";
 const COLS = 4;
@@ -15,6 +15,10 @@ const PARTICLE_COUNT = 250000;
 const INTRO_DURATION = 1.4;
 // Per-particle stagger window — particles arrive within this window
 const STAGGER = 0.8;
+
+// Migration animation constants
+const MIGRATE_DURATION = 1.5;
+const MIGRATE_STAGGER = 1.5;
 
 function createAtlas(): THREE.CanvasTexture {
   const size = 512;
@@ -174,6 +178,7 @@ export default function AsciiSwarm() {
     startPositions: Float32Array;
     blinkDelta: Float32Array;
     smileDelta: Float32Array;
+    frownDelta: Float32Array;
     charIndices: Float32Array;
     seeds: Float32Array;
   } | null>(null);
@@ -183,7 +188,9 @@ export default function AsciiSwarm() {
   const mouse = useRef({ x: 0, y: 0, smoothX: 0, smoothY: 0, worldX: 0, worldY: 0 });
   const blinkState = useRef({ nextBlink: 4, isDouble: false });
   const smileRef = useRef(0);
-  const scrollRotRef = useRef({ rotY: 0, rotX: 0 });
+  const frownRef = useRef(0);
+  const migrateRef = useRef({ progress: 1, startTime: 0, prevOffset: [0, 0, 0] as number[], targetOffset: [0, 0, 0] as number[] });
+  const currentOffset = useRef([0, 0, 0]);
   const { camera } = useThree();
 
   useEffect(() => {
@@ -198,9 +205,6 @@ export default function AsciiSwarm() {
       const worldX = camera.position.x + dir.x * t;
       const worldY = camera.position.y + dir.y * t;
 
-      const dist = 8;
-      mouse.current.x = Math.atan2(worldX, dist);
-      mouse.current.y = Math.atan2(worldY, dist);
       mouse.current.worldX = worldX;
       mouse.current.worldY = worldY;
     };
@@ -296,6 +300,7 @@ export default function AsciiSwarm() {
       startPositions,
       blinkDelta: morphDeltas[0] || new Float32Array(PARTICLE_COUNT * 3),
       smileDelta: morphDeltas[1] || new Float32Array(PARTICLE_COUNT * 3),
+      frownDelta: morphDeltas[2] || new Float32Array(PARTICLE_COUNT * 3),
       charIndices,
       seeds,
     });
@@ -314,6 +319,10 @@ export default function AsciiSwarm() {
         uMouse: { value: new THREE.Vector2(0, 0) },
         uBlink: { value: 0 },
         uSmile: { value: 0 },
+        uFrown: { value: 0 },
+        uMigrate: { value: 1 },
+        uPrevOffset: { value: new THREE.Vector3(0, 0, 0) },
+        uTargetOffset: { value: new THREE.Vector3(0, 0, 0) },
       },
       vertexShader: /* glsl */ `
         attribute float aChar;
@@ -321,12 +330,17 @@ export default function AsciiSwarm() {
         attribute vec3 aStartPos;
         attribute vec3 aBlinkDelta;
         attribute vec3 aSmileDelta;
+        attribute vec3 aFrownDelta;
         attribute float aSeed;
         uniform float uTime;
         uniform float uIntro;
         uniform vec2 uMouse;
         uniform float uBlink;
         uniform float uSmile;
+        uniform float uFrown;
+        uniform float uMigrate;
+        uniform vec3 uPrevOffset;
+        uniform vec3 uTargetOffset;
 
         varying float vChar;
         varying float vAlpha;
@@ -338,7 +352,7 @@ export default function AsciiSwarm() {
 
         void main() {
           // Base = closed eyes. Delta opens them. uBlink=1 closes by removing the delta.
-          vec3 facePos = position + aBlinkDelta * (1.0 - uBlink) + aSmileDelta * uSmile;
+          vec3 facePos = position + aBlinkDelta * (1.0 - uBlink) + aSmileDelta * uSmile + aFrownDelta * uFrown;
           vec3 n = normalize(aNormal);
           float t = uTime;
           float s = aSeed;
@@ -395,6 +409,31 @@ export default function AsciiSwarm() {
           float sx = sin(rotX);
           p = vec3(p.x, p.y * cx - p.z * sx, p.y * sx + p.z * cx);
           n = vec3(n.x, n.y * cx - n.z * sx, n.y * sx + n.z * cx);
+
+          // --- Migration offset ---
+          float mTotal = ${(MIGRATE_STAGGER + MIGRATE_DURATION).toFixed(1)};
+          float mDelay = fract(s * 3.17 + sin(s * 7.3) * 0.3) * ${MIGRATE_STAGGER.toFixed(1)};
+          float mLocal = clamp((uMigrate * mTotal - mDelay) / ${MIGRATE_DURATION.toFixed(1)}, 0.0, 1.0);
+          float mEase = easeOutQuint(mLocal);
+
+          vec3 mOffset = mix(uPrevOffset, uTargetOffset, mEase);
+
+          // Curvy per-particle flight paths during migration
+          float mFlight = sin(mLocal * 3.14159);
+          float travelMag = length(uTargetOffset - uPrevOffset);
+          float curvScale = max(travelMag * 0.35, 0.5);
+
+          float curvX = mFlight * curvScale * (
+            sin(mLocal * 11.0 + s * 6.3) * 0.5 +
+            sin(mLocal * 7.0 + s * 9.1) * 0.35
+          );
+          float curvY = mFlight * curvScale * (
+            cos(mLocal * 9.0 + s * 4.7) * 0.5 +
+            sin(mLocal * 13.0 + s * 7.8) * 0.25
+          );
+          float curvZ = mFlight * curvScale * sin(mLocal * 8.0 + s * 5.5) * 0.3;
+
+          p += mOffset + vec3(curvX, curvY, curvZ);
 
           // Lighting
           vec3 lightDir = normalize(vec3(0.3, 0.5, 0.9));
@@ -458,46 +497,28 @@ export default function AsciiSwarm() {
     if (!materialRef.current) return;
 
     const m = mouse.current;
-    m.smoothX += (m.x - m.smoothX) * 0.04;
-    m.smoothY += (m.y - m.smoothY) * 0.04;
+    // Compute look-at angles relative to face position, not world origin
+    const faceX = currentOffset.current[0];
+    const faceY = currentOffset.current[1];
+    const dist = 8;
+    m.x = Math.atan2(m.worldX - faceX, dist);
+    m.y = Math.atan2(m.worldY - faceY, dist);
+
+    // Scripted rotation overrides mouse tracking
+    if (moveState.sequencePhase === "look-left") {
+      m.smoothX += (-0.45 - m.smoothX) * 0.06;
+      m.smoothY += (0 - m.smoothY) * 0.06;
+    } else if (moveState.sequencePhase === "look-front") {
+      // Face is off-center right, so slight left rotation to make eye contact
+      m.smoothX += (-0.15 - m.smoothX) * 0.06;
+      m.smoothY += (0 - m.smoothY) * 0.06;
+    } else {
+      m.smoothX += (m.x - m.smoothX) * 0.04;
+      m.smoothY += (m.y - m.smoothY) * 0.04;
+    }
 
     const elapsed = clock.elapsedTime;
     const intro = Math.min(elapsed / (INTRO_DURATION + STAGGER), 1.0);
-    const offset = scrollState.offset;
-
-    // --- Scroll-driven face position ---
-    const moveT = Math.max(0, Math.min(1, (offset - 0.25) / 0.25));
-    const easeMove = 1 - Math.pow(1 - moveT, 3); // easeOutCubic
-    if (groupRef.current) {
-      groupRef.current.position.set(
-        easeMove * 3.8,   // push further right
-        0,
-        0
-      );
-      const s = 1 - easeMove * 0.1;
-      groupRef.current.scale.setScalar(s);
-    }
-
-    // --- Scroll-driven rotation override ---
-    let scriptedRotY = 0;
-    if (offset > 0.48 && offset < 0.58) {
-      scriptedRotY = -0.5; // face left toward messages
-    } else if (offset >= 0.58 && offset < 0.68) {
-      scriptedRotY = 0; // face viewer (4th wall)
-    } else if (offset >= 0.68) {
-      scriptedRotY = -0.5; // face left toward messages (sending reply)
-    }
-
-    // Blend: 0 = full mouse, 1 = full scripted
-    const overrideBlend = Math.max(0, Math.min(1, (offset - 0.30) / 0.10));
-
-    // Smooth lerp toward scripted target
-    const sr = scrollRotRef.current;
-    sr.rotY += (scriptedRotY - sr.rotY) * 0.08;
-    sr.rotX += (0 - sr.rotX) * 0.08;
-
-    const finalMouseX = m.smoothX * (1 - overrideBlend) + sr.rotY * overrideBlend;
-    const finalMouseY = m.smoothY * (1 - overrideBlend) + sr.rotX * overrideBlend;
 
     // --- Blink logic ---
     const bs = blinkState.current;
@@ -522,25 +543,87 @@ export default function AsciiSwarm() {
     }
 
     // --- Smile logic ---
-    // Mouse hover smile on screen 1, scripted smile during caption + reply
-    const cursorDist = Math.sqrt(m.worldX * m.worldX + m.worldY * m.worldY);
-    const mouseSmile = cursorDist < 2.5 ? 1 : 0;
-    const scrollSmile = (offset >= 0.58 && offset < 0.70) || offset >= 0.68 ? 1 : 0;
-    const smileTarget = overrideBlend > 0.5 ? scrollSmile : mouseSmile;
+    const dx = m.worldX - currentOffset.current[0];
+    const dy = m.worldY - currentOffset.current[1];
+    const cursorDist = Math.sqrt(dx * dx + dy * dy);
+    const smileTarget = cursorDist < 2.5 ? 1 : 0;
     smileRef.current += (smileTarget - smileRef.current) * 0.05;
+
+    // --- Migration logic ---
+    const mig = migrateRef.current;
+    const cam = camera as THREE.PerspectiveCamera;
+    const vFov = cam.fov * Math.PI / 180;
+    const camDist = cam.position.z;
+    const halfH = Math.tan(vFov / 2) * camDist;
+    const halfW = halfH * cam.aspect;
+    const visibleHeight = halfH * 2;
+
+    if (moveState.triggered && intro >= 1) {
+      moveState.triggered = false;
+
+      // Target: right third of viewport, vertically centered on screen 2
+      const tx = halfW * (1 / 3);             // ⅔ across viewport (right third)
+      const ty = cam.position.y - visibleHeight; // center of next screen
+
+      moveState.migrationDone = false;
+      mig.prevOffset = [...currentOffset.current];
+      mig.targetOffset = [tx, ty, 0];
+      mig.progress = 0;
+      mig.startTime = elapsed;
+    }
+
+    if (mig.progress < 1) {
+      const totalDur = MIGRATE_STAGGER + MIGRATE_DURATION;
+      mig.progress = Math.min((elapsed - mig.startTime) / totalDur, 1);
+      if (mig.progress >= 1) {
+        currentOffset.current = [...mig.targetOffset];
+        moveState.migrationDone = true;
+      }
+    }
+
+    // --- Camera auto-scroll ---
+    // Camera tracks the "median" particle position so it stays in sync with the swarm.
+    // Uses the same easeOutQuint curve but slightly delayed (offset by half the stagger)
+    // so camera waits for particles to start moving before following.
+    if (mig.progress > 0 && mig.progress < 1) {
+      const totalDur = MIGRATE_STAGGER + MIGRATE_DURATION;
+      // Camera progress: delayed by half the stagger window so particles lead
+      const camDelay = MIGRATE_STAGGER * 0.4;
+      const camRaw = Math.max((mig.progress * totalDur - camDelay) / (totalDur - camDelay), 0);
+      const camEase = 1 - Math.pow(1 - Math.min(camRaw, 1), 5);
+      const targetCamY = mig.prevOffset[1] + (mig.targetOffset[1] - mig.prevOffset[1]) * camEase;
+      cam.position.y = targetCamY;
+    } else if (mig.progress >= 1) {
+      // Snap-settle camera on the target
+      const targetCamY = currentOffset.current[1];
+      const diff = targetCamY - cam.position.y;
+      if (Math.abs(diff) > 0.01) {
+        cam.position.y += diff * 0.15;
+      }
+    }
+
+    moveState.cameraY = cam.position.y;
+
+    materialRef.current.uniforms.uMigrate.value = mig.progress;
+    materialRef.current.uniforms.uPrevOffset.value.set(...(mig.prevOffset as [number, number, number]));
+    materialRef.current.uniforms.uTargetOffset.value.set(...(mig.targetOffset as [number, number, number]));
 
     materialRef.current.uniforms.uTime.value = elapsed;
     materialRef.current.uniforms.uIntro.value = intro;
+    // --- Frown logic ---
+    frownRef.current += (moveState.frown - frownRef.current) * 0.06;
+
     materialRef.current.uniforms.uBlink.value = blink;
     materialRef.current.uniforms.uSmile.value = smileRef.current;
-    materialRef.current.uniforms.uMouse.value.set(finalMouseX, finalMouseY);
+    materialRef.current.uniforms.uFrown.value = frownRef.current;
+    materialRef.current.uniforms.uMouse.value.set(m.smoothX, m.smoothY);
   });
 
   if (!shader || !meshData) return null;
 
   return (
     <group ref={groupRef}>
-      <points>
+      <points frustumCulled={false}>
         <bufferGeometry>
           <bufferAttribute
             attach="attributes-position"
@@ -565,6 +648,11 @@ export default function AsciiSwarm() {
           <bufferAttribute
             attach="attributes-aSmileDelta"
             args={[meshData.smileDelta, 3]}
+            count={PARTICLE_COUNT}
+          />
+          <bufferAttribute
+            attach="attributes-aFrownDelta"
+            args={[meshData.frownDelta, 3]}
             count={PARTICLE_COUNT}
           />
           <bufferAttribute
