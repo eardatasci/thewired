@@ -574,12 +574,28 @@ export default function AsciiSwarm() {
       mig.startTime = elapsed;
     }
 
+    if (moveState.wiredTriggered && intro >= 1) {
+      moveState.wiredTriggered = false;
+
+      // Target: one viewport width to the right, centered vertically
+      const visibleWidth = halfW * 2;
+      const tx = cam.position.x + visibleWidth;
+      const ty = cam.position.y;
+
+      moveState.wiredDone = false;
+      mig.prevOffset = [...currentOffset.current];
+      mig.targetOffset = [tx, ty, 0];
+      mig.progress = 0;
+      mig.startTime = elapsed;
+    }
+
     if (mig.progress < 1) {
       const totalDur = MIGRATE_STAGGER + MIGRATE_DURATION;
       mig.progress = Math.min((elapsed - mig.startTime) / totalDur, 1);
       if (mig.progress >= 1) {
         currentOffset.current = [...mig.targetOffset];
         moveState.migrationDone = true;
+        moveState.wiredDone = true;
       }
     }
 
@@ -594,17 +610,25 @@ export default function AsciiSwarm() {
       const camRaw = Math.max((mig.progress * totalDur - camDelay) / (totalDur - camDelay), 0);
       const camEase = 1 - Math.pow(1 - Math.min(camRaw, 1), 5);
       const targetCamY = mig.prevOffset[1] + (mig.targetOffset[1] - mig.prevOffset[1]) * camEase;
+      const targetCamX = mig.prevOffset[0] + (mig.targetOffset[0] - mig.prevOffset[0]) * camEase;
       cam.position.y = targetCamY;
+      cam.position.x = targetCamX;
     } else if (mig.progress >= 1) {
       // Snap-settle camera on the target
       const targetCamY = currentOffset.current[1];
-      const diff = targetCamY - cam.position.y;
-      if (Math.abs(diff) > 0.01) {
-        cam.position.y += diff * 0.15;
+      const targetCamX = currentOffset.current[0];
+      const diffY = targetCamY - cam.position.y;
+      const diffX = targetCamX - cam.position.x;
+      if (Math.abs(diffY) > 0.01) {
+        cam.position.y += diffY * 0.15;
+      }
+      if (Math.abs(diffX) > 0.01) {
+        cam.position.x += diffX * 0.15;
       }
     }
 
     moveState.cameraY = cam.position.y;
+    moveState.cameraX = cam.position.x;
 
     materialRef.current.uniforms.uMigrate.value = mig.progress;
     materialRef.current.uniforms.uPrevOffset.value.set(...(mig.prevOffset as [number, number, number]));

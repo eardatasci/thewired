@@ -4,6 +4,8 @@ import dynamic from "next/dynamic";
 import { useRef, useEffect } from "react";
 import { moveState } from "./components/moveState";
 import MessageConversation from "./components/MessageConversation";
+import DialogueBox from "./components/DialogueBox";
+import WiredChat from "./components/WiredChat";
 
 const Scene = dynamic(() => import("./components/Scene"), { ssr: false });
 
@@ -15,10 +17,12 @@ export default function Home() {
     function tick() {
       if (heroRef.current) {
         // Fade hero text as camera moves away from origin
-        const drift = Math.abs(moveState.cameraY);
+        const driftY = Math.abs(moveState.cameraY);
+        const driftX = Math.abs(moveState.cameraX);
+        const drift = Math.max(driftY, driftX);
         const fade = Math.max(1 - drift * 0.5, 0);
         heroRef.current.style.opacity = `${fade}`;
-        heroRef.current.style.transform = `translateY(${drift * -20}px)`;
+        heroRef.current.style.transform = `translate(${driftX * -20}px, ${driftY * -20}px)`;
       }
       rafRef.current = requestAnimationFrame(tick);
     }
@@ -36,6 +40,12 @@ export default function Home() {
       {/* Message conversation — appears on screen 2 after face settles */}
       <MessageConversation />
 
+      {/* Pokémon-style dialogue box */}
+      <DialogueBox />
+
+      {/* Wired chat — appears after sideways migration */}
+      <WiredChat />
+
       {/* Hero text — fades as camera moves */}
       <div
         ref={heroRef}
@@ -47,29 +57,55 @@ export default function Home() {
         >
           Scale <em className="text-cream/50">yourself.</em>
         </h1>
-        <button
-          onClick={() => { moveState.triggered = true; }}
-          className="mt-8 mb-4 animate-fade-up pointer-events-auto w-10 h-10 rounded-full border border-cream/10 bg-cream/[0.04] backdrop-blur-sm flex items-center justify-center hover:bg-cream/[0.08] hover:border-cream/20 transition-all duration-200 cursor-pointer"
-          style={{ animationDelay: "4.2s" }}
-        >
-          <svg
-            className="animate-boop"
-            width="16"
-            height="10"
-            viewBox="0 0 20 12"
-            fill="none"
-            xmlns="http://www.w3.org/2000/svg"
+        <div className="mt-8 mb-4 animate-fade-up pointer-events-auto flex items-center gap-3" style={{ animationDelay: "4.2s" }}>
+          <button
+            onClick={() => { moveState.triggered = true; }}
+            className="flex items-center gap-3 px-5 py-2.5 rounded-full border border-cream/10 bg-cream/[0.04] backdrop-blur-sm hover:bg-cream/[0.08] hover:border-cream/20 transition-all duration-200 cursor-pointer"
+            style={{ fontFamily: "var(--font-inter)" }}
           >
-            <path
-              d="M2 2L10 10L18 2"
-              stroke="currentColor"
-              strokeOpacity="0.3"
-              strokeWidth="1.5"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-          </svg>
-        </button>
+            <span className="text-[13px] text-cream/40">quick demo</span>
+            <svg
+              className="animate-boop"
+              width="12"
+              height="8"
+              viewBox="0 0 20 12"
+              fill="none"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <path
+                d="M2 2L10 10L18 2"
+                stroke="currentColor"
+                strokeOpacity="0.3"
+                strokeWidth="1.5"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
+          </button>
+          <button
+            onClick={() => { moveState.wiredTriggered = true; }}
+            className="flex items-center gap-2 px-5 py-2.5 rounded-full border border-cream/10 bg-cream/[0.04] backdrop-blur-sm hover:bg-cream/[0.08] hover:border-cream/20 transition-all duration-200 cursor-pointer"
+            style={{ fontFamily: "var(--font-inter)" }}
+          >
+            <span className="text-[13px] text-cream/40">talk to my wired</span>
+            <svg
+              width="8"
+              height="12"
+              viewBox="0 0 12 20"
+              fill="none"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <path
+                d="M2 2L10 10L2 18"
+                stroke="currentColor"
+                strokeOpacity="0.3"
+                strokeWidth="1.5"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
+          </button>
+        </div>
       </div>
     </div>
   );

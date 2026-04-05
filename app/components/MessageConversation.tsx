@@ -240,6 +240,11 @@ export default function MessageConversation() {
             const e = fadeIn(postElapsed, showAt);
             el.style.opacity = `${e}`;
             el.style.transform = `translateY(${(1 - e) * 12}px)`;
+
+            // Mark conversation done after last response fully visible
+            if (i === responseRefs.current.length - 1 && e >= 1) {
+              moveState.conversationDone = true;
+            }
           }
         }
       } else {

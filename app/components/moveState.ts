@@ -9,4 +9,14 @@ export const moveState = {
   sequencePhase: "idle" as "idle" | "look-left" | "look-front",
   // Frown target (0-1) — driven by message sequence
   frown: 0,
+  // Set true when the message conversation is fully complete (all responses shown)
+  conversationDone: false,
+  // Set true when user clicks Contact in navbar
+  contactPressed: false,
+  // Sideways migration trigger for "talk to my wired"
+  wiredTriggered: false,
+  // Track camera X for UI overlays
+  cameraX: 0,
+  // Set true when wired migration completes
+  wiredDone: false,
 };
