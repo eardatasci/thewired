@@ -25,8 +25,8 @@ const mono = IBM_Plex_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Digital Twin",
-  description: "Scale yourself. A personal AI clone.",
+  title: "thewired",
+  description: "Scale yourself.",
 };
 
 export default function RootLayout({
