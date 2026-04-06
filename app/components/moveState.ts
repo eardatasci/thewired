@@ -17,6 +17,8 @@ export const moveState = {
   wiredDone: false,
   // Set true when the demo conversation fully completes
   demoDone: false,
+  // Which path the user chose in the demo ("end-well" | "beg" | null)
+  demoChoice: null as "end-well" | "beg" | null,
   // Set true while wired audio is playing — drives mouth movement
   speaking: false,
 };

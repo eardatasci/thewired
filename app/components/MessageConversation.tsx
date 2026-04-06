@@ -119,6 +119,7 @@ export default function MessageConversation() {
     }
     choiceRef.current = c;
     choiceTimeRef.current = performance.now();
+    moveState.demoChoice = c;
     setChoice(c);
   }, []);
 
@@ -168,16 +169,18 @@ export default function MessageConversation() {
         const elapsed = (performance.now() - startTimeRef.current) / 1000;
 
         // --- Phase 1: Incoming messages ---
-        if (elapsed >= TIMELINE.lookFront) {
-          moveState.sequencePhase = "look-front";
-          // Stop frowning when turning to viewer (unless post-choice overrides)
-          if (!choiceRef.current) moveState.frown = 0;
-        } else if (elapsed >= TIMELINE.msg1) {
-          // Frown when reading "I want to break up"
-          moveState.sequencePhase = "look-left";
-          moveState.frown = 1;
-        } else if (elapsed >= TIMELINE.msg0) {
-          moveState.sequencePhase = "look-left";
+        if (!moveState.demoDone) {
+          if (elapsed >= TIMELINE.lookFront) {
+            moveState.sequencePhase = "look-front";
+            // Stop frowning when turning to viewer (unless post-choice overrides)
+            if (!choiceRef.current) moveState.frown = 0;
+          } else if (elapsed >= TIMELINE.msg1) {
+            // Frown when reading "I want to break up"
+            moveState.sequencePhase = "look-left";
+            moveState.frown = 1;
+          } else if (elapsed >= TIMELINE.msg0) {
+            moveState.sequencePhase = "look-left";
+          }
         }
 
         // Incoming message 0
@@ -215,15 +218,17 @@ export default function MessageConversation() {
           const postElapsed = (performance.now() - choiceTimeRef.current) / 1000;
 
           // Face turns to look at messages when response arrives
-          if (postElapsed >= POST.lookLeft) {
-            moveState.sequencePhase = "look-left";
-          }
+          if (!moveState.demoDone) {
+            if (postElapsed >= POST.lookLeft) {
+              moveState.sequencePhase = "look-left";
+            }
 
-          // Frown when reading "lol no" (beg path response)
-          if (choiceRef.current === "beg" && postElapsed >= POST.resp0 + 0.6) {
-            moveState.frown = 1;
-          } else if (postElapsed < POST.lookLeft) {
-            moveState.frown = 0;
+            // Frown when reading "lol no" (beg path response)
+            if (choiceRef.current === "beg" && postElapsed >= POST.resp0 + 0.6) {
+              moveState.frown = 1;
+            } else if (postElapsed < POST.lookLeft) {
+              moveState.frown = 0;
+            }
           }
 
           // Sent messages
@@ -247,6 +252,8 @@ export default function MessageConversation() {
 
             if (i === responseRefs.current.length - 1 && e >= 1) {
               moveState.demoDone = true;
+              moveState.sequencePhase = "idle";
+              moveState.frown = 0;
             }
           }
         }
